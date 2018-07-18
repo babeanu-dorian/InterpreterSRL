@@ -1,0 +1,389 @@
+options
+{
+    LOOKAHEAD=1;
+    STATIC=false;
+    TOKEN_MANAGER_USES_PARSER=true;
+}
+PARSER_BEGIN(InterpreterSRL)
+import java.util.*;
+import java.io.*;
+import com.bachelor_project.interpreterast.statements.*;
+import com.bachelor_project.interpreterast.functions.*;
+import com.bachelor_project.reactive.Program;
+import org.apache.commons.text.StringEscapeUtils;
+
+public class InterpreterSRL
+{
+    private int lineNumber = 1;
+    private String fileName;
+
+    public InterpreterSRL(String fileName) throws FileNotFoundException {
+        this(new FileReader(fileName));
+        this.fileName = fileName;
+    }
+
+    public int getLineNumber() {
+        return this.lineNumber;
+    }
+
+    public void setLineNumber(int lineNumber) {
+        this.lineNumber = lineNumber;
+    }
+
+    public static void main(String args[]) throws ParseException 
+    {
+        if (args.length < 1) {
+            System.err.println("Specify a file as command line argument.");
+            System.exit(-1);
+        }
+
+        InterpreterSRL parser = null;
+
+        try {
+
+            parser = new InterpreterSRL(args[0]);
+            Program program = parser.program();
+
+            try{
+                program.execute();
+                System.exit(0); // stop all threads, safe because they're all suspended,
+                                // but consider doing this in a nicer way
+            } catch (IOException e) {
+                System.err.println(e);
+            } catch (RuntimeException e) {
+                System.err.println(e);
+            }
+
+        } catch (FileNotFoundException ex) {
+
+            System.err.println("File not found: " + args[0]);
+            System.exit(-1);
+
+        } catch (ParseException ex) {
+
+            System.err.println("Syntax error on line: " + parser.getLineNumber() + " in file " + args[0]);
+            System.exit(-1);
+
+        }
+    }
+}
+PARSER_END(InterpreterSRL)
+SKIP :
+{
+    " "
+|   "\t"
+|   < "//" (~["\n","\r"])* >
+|   < ("\n" | "\r" | "\r\n") >                  { parser.setLineNumber(parser.getLineNumber() + 1); }
+}
+TOKEN:
+{
+    < IMPORT : "import" >
+|   < SIGNAL_DOMAIN : "signal_domain" >
+|   < SHARED_DATA : "shared_data" >
+|   < NULL : "null" >
+|   < TRUE : "true" >
+|   < FALSE : "false" >
+|   < LET : "let" >
+|   < NOT : ("!" | "not") >
+|   < OR : ("||" | "or") >
+|   < AND : ("&&" | "and") >
+|   < ID : ["a"-"z","A"-"Z", "_"] (["a"-"z","A"-"Z","0"-"9","_"])* >
+|   < STRING : "\""  ("\\" ("\\" | "n" | "r" | "\"") | ~["\\","\n","\r","\""] )* "\"" >
+|   < INT : (["0"-"9"])+ >
+|   < FLOAT : (<INT>)?"."<INT>( ("e"|"E")("+"|"-")<INT> )? >
+}
+Program program():
+{
+    List<String> signalList;
+    List<String> sharedData;
+    Map<String, FunctionDefinition> declarations = Program.keywordDefinitions();
+    Statement currentStatement;
+    List<Statement> statements = new ArrayList<Statement>();
+}
+{
+    ( importList(declarations)
+    )?
+    signalList = signalDomain()
+    sharedData = sharedData()
+    ( currentStatement = statementWithSemicolon()     {   statements.add(currentStatement); }
+    | declaration(declarations) )*
+    <EOF>                                             {
+                                                          return new Program(signalList, sharedData, declarations, new StatementSequence(statements));
+                                                      }
+}
+void library(Map<String, FunctionDefinition> declarations):
+{
+    
+}
+{
+    ( importList(declarations) )? ( declaration(declarations) )* <EOF>
+}
+void importList(Map<String, FunctionDefinition> declarations):
+{
+    List<String> fileList;
+}
+{
+    <IMPORT> ":" fileList = stringList() "."        {
+                                                        String filePath = (new File(this.fileName)).getParent();
+
+                                                        for (String fileName : fileList) {
+
+                                                            // TODO: check if the file was already parsed (multiple includes)
+
+                                                            String importedFile = (new File(filePath, fileName)).getPath();
+
+                                                            InterpreterSRL libParser = null;
+
+                                                            try {
+
+                                                                libParser = new InterpreterSRL(importedFile);
+                                                                libParser.library(declarations);
+
+                                                            } catch (FileNotFoundException ex) {
+
+                                                                System.err.println("File not found: " + fileName);
+                                                                System.err.println("Requested from file " + this.fileName);
+                                                                System.exit(-1);
+
+                                                            } catch (ParseException ex) {
+
+                                                                System.err.println("Syntax error on line " + libParser.getLineNumber() + " in file " + fileName);
+                                                                System.exit(-1);
+
+                                                            }
+                                                        }
+                                                    }
+}
+List<String> signalDomain():
+{
+    List<String> signalList;
+}
+{
+    <SIGNAL_DOMAIN> ":" signalList = identifierList() "."        { return signalList; }
+}
+List<String> sharedData():
+{
+    List<String> varList;
+}
+{
+    <SHARED_DATA> ":" varList = identifierList() "."        { return varList; }
+}
+void declaration(Map<String, FunctionDefinition> declarations):
+{
+    List<String> parameterNames;
+    Statement functionCode;
+    Token idTok;
+}
+{
+    <LET>
+    idTok = <ID> "("
+    parameterNames = identifierList() ")" "="
+    functionCode = statementWithSemicolon()           {
+                                                           if (declarations.containsKey(idTok.toString())) {
+                                                              System.err.println("Multiple definitions of function: " + idTok.toString());
+                                                              throw new ParseException(); // TODO: use a different exception
+                                                           }
+                                                           declarations.put(idTok.toString(), new UserFunctionDefinition(parameterNames, functionCode));
+                                                      }
+}
+Statement statementWithSemicolon():
+{
+    Statement statement;
+}
+{
+    statement = statement() ";"                        { return statement; }
+}
+Statement statement():
+{
+    Statement lhs;
+    Statement rhs;
+}
+{
+    lhs = orExpression()
+    ( "="
+    rhs = statement()                                  { lhs = new Assignment(lhs, rhs); }
+    )?                                                 { return lhs; }
+}
+Statement orExpression():
+{
+    Statement exp;
+    Statement temp;
+}
+{
+    exp = andExpression()
+    ( <OR>
+    temp = andExpression()                             { exp = new LogicalOr(exp, temp); }
+    )*                                                 { return exp; }
+}
+Statement andExpression():
+{
+    Statement exp;
+    Statement temp;
+}
+{
+    exp = logicalAtom()
+    ( <AND>
+    temp = logicalAtom()                              { exp = new LogicalAnd(exp, temp); }
+    )*                                                { return exp; }
+}
+Statement logicalAtom():
+{
+    Statement exp;
+}
+{
+    (
+    exp = comparison()
+    | <NOT> exp = comparison()                        { exp = new LogicalNot(exp); }
+    )                                                 { return exp; }
+}
+Statement comparison():
+{
+    Statement lhs;
+    Statement rhs;
+}
+{
+    lhs = calculation()
+    (
+    "==" rhs = calculation()                          { lhs = new Equality(lhs, rhs); }
+    | "!=" rhs = calculation()                        { lhs = new LogicalNot(new Equality(lhs, rhs)); }
+    | "<" rhs = calculation()                         { lhs = new LessThan(lhs, rhs); }
+    | "<=" rhs = calculation()                        { lhs = new LogicalNot(new GreaterThan(lhs, rhs)); }
+    | ">" rhs = calculation()                         { lhs = new GreaterThan(lhs, rhs); }
+    | ">=" rhs = calculation()                        { lhs = new LogicalNot(new LessThan(lhs, rhs)); }
+    )?                                                { return lhs; }
+}
+Statement calculation():
+{
+    Statement exp;
+    Statement temp;
+}
+{
+    exp = term()
+    ( "+"
+    temp = term()                                      { exp = new Addition(exp, temp); }
+    | "-"
+    temp = term()                                      { exp = new Subtraction(exp, temp); }
+    )*                                                 { return exp; }
+}
+Statement term():
+{
+    Statement exp;
+    Statement temp;
+}
+{
+    exp = factor()
+    ( "*"
+    temp = factor()                                    { exp = new Multiplication(exp, temp); }
+    | "/"
+    temp = factor()                                    { exp = new Division(exp, temp); }
+    | "%"
+    temp = factor()                                    { exp = new Modulo(exp, temp); }
+    )*                                                 { return exp; }
+}
+Statement factor():
+{
+    Statement statement = new Value(null);
+    Statement index;
+    List<Statement> paramList;
+    Token tok;
+}
+{
+    (
+    statement = constant()
+    | "(" ( statement = statementSequence() )? ")"
+    | tok = <ID>                                   { statement = new Identifier(tok.toString()); }
+      (
+        paramList = parameterList()                { statement = new FunctionCall( (Identifier) statement, paramList ); }
+        | (
+            index = index()                        { statement = new IndexOperation(statement, index); }
+          )+
+      )?
+    )                                              { return statement; }
+}
+Statement index():
+{
+    Token tok;
+    Statement statement;
+}
+{
+    (
+    "." tok = <ID>                                    { return new Value(tok.toString()); }
+    | "[" statement = statement() "]"                 { return statement; }
+    )
+}
+Value constant():
+{
+    Token tok;
+    String str;
+}
+{
+    tok = <INT>                                        { return new Value(Integer.parseInt(tok.toString())); }
+    | tok = <FLOAT>                                    { return new Value(Double.parseDouble(tok.toString())); }
+    | str = stringConstant()                           { return new Value(str); }
+    | <NULL>                                           { return new Value(null); }
+    | <TRUE>                                           { return new Value(true); }
+    | <FALSE>                                          { return new Value(false); }
+}
+String stringConstant():
+{
+    String str;
+    Token tok;
+}
+{
+    tok = <STRING>      {
+                            str = tok.toString();
+                            str = str.substring(1, str.length() - 1);
+                            str = StringEscapeUtils.unescapeJava(str);
+                            return str;
+                        }
+}
+Statement statementSequence():
+{
+    ArrayList<Statement> statementList = new ArrayList<Statement>();
+    Statement currentStatement;
+}
+{
+    currentStatement = statement()                      { statementList.add(currentStatement); }
+    (";" (
+    currentStatement = statementWithSemicolon()         { statementList.add(currentStatement); }
+    )* )?                                               {
+                                                            if (statementList.size() == 1)
+                                                                return statementList.get(0);
+                                                            return new StatementSequence(statementList);
+                                                        }
+}
+List<Statement> parameterList():
+{
+    List<Statement> parameterList = new ArrayList<Statement>();
+    Statement currentStatement;
+}
+{
+    "(" ( 
+    currentStatement = statementSequence()             { parameterList.add(currentStatement); }
+    (","
+    currentStatement = statementSequence()             { parameterList.add(currentStatement); }
+    )* )? ")"                                          { return parameterList; }
+}
+List<String> identifierList():
+{
+    List<String> idList = new ArrayList<String>();
+    Token tok;
+}
+{
+    (tok = <ID>                   { idList.add(tok.toString()); }
+    (","
+    tok = <ID>                    { idList.add(tok.toString()); }
+    )*)?                          { return idList; }
+}
+List<String> stringList():
+{
+    String str;
+    List<String> strList = new ArrayList<String>();
+}
+{
+    (str = stringConstant()                 { strList.add(str); }
+        (
+            "," str =  stringConstant()     { strList.add(str); }
+        )*
+    )?                                      { return strList; }
+}

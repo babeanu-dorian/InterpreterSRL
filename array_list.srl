@@ -1,0 +1,30 @@
+// Implementation of an array-based list
+
+let array_list(x) = (
+    struct(x);
+    x.length = 0;
+);
+
+let array_list_push(list, x) = (
+    list[list.length] = x;
+    list.length = list.length + 1;
+);
+
+let array_list_push_all(to, from) = (
+    here.i = 0;
+    loop( here.i != from.length,
+        array_list_push(to, from[here.i]);
+        here.i = here.i + 1;
+    );
+);
+
+let array_list_print(list) = (
+    here.str = "[ ";
+    here.idx = 0;
+    loop(here.idx < list.length,
+        here.str = here.str + list[here.idx] + " ";
+        here.idx = here.idx + 1;
+    );
+    here.str = here.str + "]\n";
+    print(here.str);
+);

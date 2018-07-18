@@ -1,0 +1,77 @@
+// If s0 is emited during the current instant emit s1 else emit s2 in the next instant
+
+import: "stdlib.srl", "array_list.srl".
+
+signal_domain: s0, s1, s2.
+
+shared_data: intList.
+
+//present(s0, (emit(s1); print("hello !");), (emit(s2); print("hello" + " from the other side");));
+
+//watch(s0, loop((print("hello"); pause(); )));
+
+//pause(); print("hello");
+
+//watch(s0, (print("hello"); thread(when(s1, print("hey"))); emit(s1); ));
+
+//when(s0, print("hello"));
+
+//now( when(s0, print("hello")));
+
+//now(await(s0)); print("hello");
+
+//print("1"); pause; print("2"); emit(s1); pause; print("3"); pause;
+
+//emit(s1); when(s1, print("hello"));
+
+//lock(strList, array_list(strList));
+
+//thread(
+//    lock(strList,
+//        array_list_push(strList, "child of main");
+//        emit(s0);
+//    );
+//    thread(
+//        lock(strList,
+//            array_list_push(strList, "child of child of main");
+//            emit(s1);
+//        );
+//    );
+//);
+
+//lock(strList,
+//    array_list_push(strList, "main");
+//);
+
+//when(s0, s1, lock(strList, array_list_print(strList)));
+
+let reactive_add(list, x, s) = (
+    array_list_push(list, x);
+    emit(s);
+);
+
+lock(intList,
+    array_list(intList);
+);
+
+thread(
+    loop(true,
+        when(s0,
+            lock(intList,
+                array_list_print(intList);
+            );
+        );
+        pause();
+    );
+);
+
+lock(intList,
+    reactive_add(intList, 3, s0);
+    pause();
+    reactive_add(intList, 4, s0);
+    pause();
+    reactive_add(intList, "hello", s0);
+);
+    
+
+    

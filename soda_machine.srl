@@ -1,0 +1,54 @@
+// A demo for a soda machine program.
+
+import: "stdlib.srl".
+
+signal_domain : MENU, COIN, PEPSI, COLA, FANTA, SPRITE.
+
+shared_data: credit.
+
+lock(credit,
+	credit = 0;
+	print("Soda machine demo. Commands:\nMENU - display product list with prices\nCOIN - increment credit\n\n");
+);
+
+thread(
+	loop(true,
+		when(MENU,
+			print("\nMenu:\nPEPSI   2$\nCOLA    3$\nFANTA   2$\nSPRITE  1$\n\n");
+		);
+		pause();
+	);
+);
+
+thread(
+	loop(true,
+		when(COIN,
+			lock(credit,
+				credit = credit + 1;
+				print("\nCurrent credit: " + credit +"\n\n");
+			);
+		);
+		pause();
+	);
+);
+
+let orderListener(signal, name, price) = thread(
+	loop(true,
+		when(signal,
+			lock(credit,
+				if(price <= credit,
+					credit = credit - price;
+					print("\nYour order: " + name + "\nRemaining credit: " + credit + "\n\n");
+					, //else:
+					print("\nInsufficient credit: " + credit + "\nPrice of " + name + ": " + price + "\n\n");
+				);
+			);
+		);
+		pause();
+	);
+);
+
+orderListener(PEPSI, "Pepsi", 2);
+orderListener(COLA, "Cola", 3);
+orderListener(FANTA, "Fanta", 2);
+orderListener(SPRITE, "Sprite", 1);

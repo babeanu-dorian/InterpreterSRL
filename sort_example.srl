@@ -1,0 +1,96 @@
+// A list that sorts itself after elements are added to it.
+
+import: "stdlib.srl", "array_list.srl".
+
+signal_domain : SORT.
+
+shared_data: intList.
+
+// set up examples
+
+// test 1: add [2, 1]
+array_list(private.ex1);
+array_list_push(private.ex1, 2);
+array_list_push(private.ex1, 1);
+
+// test 2: add [0, 12, 5]
+array_list(private.ex2);
+array_list_push(private.ex2, 0);
+array_list_push(private.ex2, 12);
+array_list_push(private.ex2, 5);
+
+// test 3: add [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+array_list(private.ex3);
+private.i = 1;
+loop( private.i < 11,
+    array_list_push(private.ex3, private.i);
+    private.i = private.i + 1;
+);
+
+let swap(x, y) = (
+    here.z = x;
+    x = y;
+    y = here.z;
+);
+
+let partition(list, left, right, pivot) = (
+    here.originalRight = right;
+    right = right - 1;
+    loop( left < right,
+        loop( list[left] < pivot,
+            left = left + 1;
+        );
+        loop( right > 0 and list[right] > pivot,
+            right = right - 1;
+        );
+        if ( left < right,
+            //print("swapped " + list[left] + " with " + list[right] + "\n");
+            swap(list[left], list[right]);
+        ,()); // empty else block
+    );
+    //print("pivot swapped: " + list[left] + " with " + list[here.originalRight] + "\n");
+    swap(list[left], list[here.originalRight]);
+    //print("Updated array: ");
+    //array_list_print(list);
+);
+
+let quicksort(list, left, right) = (
+    if (right - left > 0,
+        here.pivot = list[right];
+        here.partitionLeft = left;
+        here.partitionRight = right;
+        partition(list, here.partitionLeft, here.partitionRight, here.pivot);
+        quicksort(list, left, here.partitionLeft - 1);
+        quicksort(list, here.partitionLeft + 1, right);
+    ,()); // empty else block
+);
+
+let reactive_add(to, from, signal) = (
+    array_list_push_all(to, from);
+    emit(signal);
+);
+
+thread(
+    loop( true,
+        when(SORT,
+            lock(intList,
+                print("Before sorting: ");
+                array_list_print(intList);
+                quicksort(intList, 0, intList.length - 1);
+                print("After sorting: ");
+                array_list_print(intList);
+            );
+        );
+        pause();
+    );
+);
+
+lock(intList,
+    array_list(intList);
+    reactive_add(intList, private.ex1, SORT);
+    pause();
+    reactive_add(intList, private.ex2, SORT);
+    pause();
+    reactive_add(intList, private.ex3, SORT);
+);
+    

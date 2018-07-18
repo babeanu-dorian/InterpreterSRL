@@ -1,0 +1,94 @@
+// A server demo.
+
+import: "stdlib.srl".
+
+signal_domain: CLIENT.
+
+shared_data: clientId.
+
+startMainServer();
+
+generateClients(16);
+
+let startMainServer() = thread(
+	loop(true,
+		acceptClient();
+		pause;
+	);
+);
+
+let generateClients(x) = (
+	here.clientNum = 0;
+	loop(here.clientNum < x,
+		lock(clientId,
+			clientId = here.clientNum;
+		);
+		emit(CLIENT);
+		here.clientNum = here.clientNum + 1;
+		pause;
+	);
+);
+
+let acceptClient() = when( CLIENT,
+	local(CLIENT_MSG, SERVER_MSG, DISCONNECT,
+		shared(inMsg, outMsg,
+			thread(handleClient(CLIENT_MSG, SERVER_MSG, DISCONNECT, inMsg, outMsg));
+			thread(simulateClient(CLIENT_MSG, SERVER_MSG, DISCONNECT, outMsg, inMsg));
+		);
+	);
+);
+
+let getClientId(id) = lock(clientId,
+	id = clientId
+);
+
+let simulateWork(x, amount) = (
+	here.i = 0;
+	loop(here.i != amount,
+		here.i = here.i + 1;
+	);
+);
+
+let handleClient(CLIENT_MSG, SERVER_MSG, DISCONNECT, inMsg, outMsg) = (
+	getClientId(here.clientId);
+	watch(DISCONNECT,
+		loop(true,
+			when(CLIENT_MSG,
+				lock(inMsg, outMsg,
+					// send the same message back
+					outMsg = inMsg; 
+					simulateWork(outMsg, 10000000); 
+					emit(SERVER_MSG);
+				);
+			);
+			pause;
+		);
+	);
+	print("Client " + here.clientId + " has disconnected.\n");
+);
+
+let simulateClient(CLIENT_MSG, SERVER_MSG, DISCONNECT, inMsg, outMsg) = (
+	here.msgCount = 0;
+	here.correctReplies = 0;
+	getClientId(here.clientId);
+	loop( here.msgCount < 100,
+		lock(outMsg,
+			outMsg = here.msgCount;
+			emit(CLIENT_MSG);
+		);
+		when(SERVER_MSG,
+			lock(inMsg,
+				if(inMsg == here.msgCount,
+					here.correctReplies = here.correctReplies + 1;
+				,
+					();
+				);
+			);
+		);
+		here.msgCount = here.msgCount + 1;
+		pause;
+	);
+	emit(DISCONNECT);
+	here.successRate = 100 * here.correctReplies / here.msgCount; 
+	print("Client " + here.clientId + " received " + here.successRate + "% correct replies.\n");
+);

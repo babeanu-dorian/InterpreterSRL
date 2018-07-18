@@ -1,0 +1,9 @@
+// Hello world example.
+
+import: "stdlib.srl".
+
+signal_domain: .
+
+shared_data: .
+
+print("Hello World !\n");

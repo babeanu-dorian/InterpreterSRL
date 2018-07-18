@@ -1,0 +1,78 @@
+// A thread-pool demo.
+
+import: "stdlib.srl", "array_list.srl".
+
+signal_domain: START, DONE.
+
+shared_data: numWorkers, results.
+
+parallelSum(3, 100000000, 100000000);
+
+let parallelSum(poolSize, workSize, sumBound) = (
+	lock(numWorkers, results,
+		numWorkers = poolSize;
+		array_list(results);
+	);
+
+	threadPool(poolSize, workSize, sumBound);
+
+	await(DONE);
+
+	lock(results,
+		here.i = 0;
+		here.sum = 0;
+		loop(here.i != results.length,
+			here.sum = (here.sum + results[here.i]) % sumBound;
+			here.i = here.i + 1;
+		);
+	);
+
+	print("Sum from 0 to "
+			+ (workSize - 1)
+			+ ", bounded by "
+			+ sumBound + ": "
+			+ here.sum + "\n");
+);
+
+let threadPool(numWorkers, workSize, sumBound) = (
+	here.chunkSize = workSize / numWorkers;
+	here.start = 0;
+	here.end = workSize % numWorkers + here.chunkSize;
+	loop(here.start != workSize,
+		spawnWorkerThread(here.start, here.end, sumBound);
+		here.start = here.end;
+		here.end = here.end + here.chunkSize;
+	);
+	emit(START);
+);
+
+let spawnWorkerThread(startVal, endVal, maxSumVal) = shared(start, end, sumBound,
+	lock(start, end, sumBound,
+		start = startVal;
+		end = endVal;
+		sumBound = maxSumVal;
+	);
+	thread(
+		work(start, end, sumBound);
+	);
+);
+
+let work(start, end, sumBound) = (
+	await(START);
+	lock(start, end, sumBound,
+		here.i = start;
+		here.sum = 0;
+		loop(here.i != end,
+			here.sum = (here.sum + here.i) % sumBound;
+			here.i = here.i + 1;
+		);
+	);
+	lock(numWorkers, results,
+		array_list_push(results, here.sum);
+		if(results.length == numWorkers,
+			emit(DONE); // all workers finished
+		,
+			()
+		);
+	);
+);

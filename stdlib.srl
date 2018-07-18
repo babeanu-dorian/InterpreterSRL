@@ -1,0 +1,35 @@
+// The standard library of the Synchronous Reactive Language:
+
+let await(s) = when(s,());
+
+let now(T) = local(s,
+    emit(s);
+    watch(s, T);
+);
+
+let pause() = local(s, now(await(s)));
+
+let exit(s) = (
+    emit(s);
+    pause();
+);
+
+let trap(s, T) = local(s,
+    watch(s, T);
+);
+
+let present(s, Tif, Telse) = local(t,
+    thread(
+        watch(s,
+            pause;
+            thread(Telse);
+            emit(t);
+        );
+    );
+    now(
+        await(s);
+        thread(Tif);
+        emit(t);
+    );
+    await(t);
+);
