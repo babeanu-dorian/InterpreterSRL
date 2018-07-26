@@ -14,3 +14,5 @@ java -jar target/InterpreterSRL.jar \<filename\>
 [Javadoc](https://htmlpreview.github.io/?https://raw.githubusercontent.com/babeanu-dorian/InterpreterSRL/master/target/site/apidocs/overview-summary.html)
 
 ## License
+
+GPL
