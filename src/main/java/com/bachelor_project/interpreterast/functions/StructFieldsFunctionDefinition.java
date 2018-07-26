@@ -13,16 +13,23 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- *
+ * Implements the <b>struct_fields</b> construct in the <b>SRL</b> language.
  * @author Alexandru Babeanu
  */
 public class StructFieldsFunctionDefinition  implements FunctionDefinition {
 
     /**
-     *
-     * @param guard
-     * @param parameterList
-     * @throws RuntimeException
+     * Computes an array list containing the names of the fields that were initialised in the provided structure.
+     * @param guard the {@link com.bachelor_project.reactive.SignalGuard} object that manages the current {@link java.lang.Thread}
+     * @param parameterList a list of {@link com.bachelor_project.interpreterast.statements.Parameter} objects containing:
+     * <ol>
+     *     <li>the variable containing the structure</li>
+     *     <li>the variable in which the resulting list will be stored</li>
+     * </ol>
+     * @throws RuntimeException when the parameter list does not contain exactly 2 elements, when the first element is not
+     * a variable containing a structure, or when the second element is not a variable.
+     * @see com.bachelor_project.reactive.SignalGuard
+     * @see com.bachelor_project.interpreterast.statements.Parameter
      */
     @Override
     public void call(SignalGuard guard, List<Parameter> parameterList) throws RuntimeException {

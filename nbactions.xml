@@ -25,8 +25,18 @@
                 <goal>org.codehaus.mojo:exec-maven-plugin:1.2.1:exec</goal>
             </goals>
             <properties>
-                <exec.args>-classpath %classpath InterpreterSRL example.in</exec.args>
+                <exec.args>-classpath %classpath InterpreterSRL examples/example.in</exec.args>
                 <exec.executable>java</exec.executable>
             </properties>
+        </action>
+        <action>
+            <actionName>javadoc</actionName>
+            <packagings>
+                <packaging>*</packaging>
+            </packagings>
+            <goals>
+                <goal>generate-sources</goal>
+                <goal>javadoc:javadoc</goal>
+            </goals>
         </action>
     </actions>

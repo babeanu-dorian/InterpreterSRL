@@ -26,6 +26,8 @@ public class LoopFunctionDefinition implements FunctionDefinition {
      * statement and a block of instructions
      * @throws RuntimeException when the parameter list does not contain exactly 2 elements or when the condition argument
      * does not evaluate to a {@link java.lang.Boolean}.
+     * @see com.bachelor_project.reactive.SignalGuard
+     * @see com.bachelor_project.interpreterast.statements.Parameter
      */
     @Override
     public void call(SignalGuard guard, List<Parameter> parameterList) throws RuntimeException {

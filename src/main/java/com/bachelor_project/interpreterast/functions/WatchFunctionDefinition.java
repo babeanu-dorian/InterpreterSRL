@@ -12,16 +12,22 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- *
+ * Implements the <b>watch</b> construct in the <b>SRL</b> language.
  * @author Alexandru Babeanu
  */
 public class WatchFunctionDefinition implements FunctionDefinition {
 
     /**
-     *
-     * @param guard
-     * @param parameterList
-     * @throws RuntimeException
+     * Executes an instruction block until the end of the first instant in which the mentioned signals are present.
+     * Uses the method {@link com.bachelor_project.reactive.SignalGuard#executeWatch(java.util.List, com.bachelor_project.interpreterast.statements.Statement, java.util.Map) }.
+     * @param guard the {@link com.bachelor_project.reactive.SignalGuard} object that manages the current {@link java.lang.Thread}
+     * @param parameterList a list of {@link com.bachelor_project.interpreterast.statements.Parameter} objects containing
+     * the identifiers for the signals, as well as the block of instructions to be executed
+     * @throws RuntimeException when the number of parameters in the list is less than two or when the parameters
+     * before the last one do not contain signal identifiers
+     * @see com.bachelor_project.reactive.SignalGuard#executeWatch(java.util.List, com.bachelor_project.interpreterast.statements.Statement, java.util.Map)
+     * @see com.bachelor_project.reactive.SignalGuard
+     * @see com.bachelor_project.interpreterast.statements.Parameter
      */
     @Override
     public void call(SignalGuard guard, List<Parameter> parameterList) throws RuntimeException {

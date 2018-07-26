@@ -10,8 +10,11 @@ import com.bachelor_project.reactive.SignalGuard;
 import java.util.Map;
 
 /**
- *
+ * Allows {@link com.bachelor_project.interpreterast.statements.Statement#execute(com.bachelor_project.reactive.SignalGuard, java.util.Map) }
+ * to run on a different {@link java.lang.Thread}.
  * @author Alexandru Babeanu
+ * @see com.bachelor_project.interpreterast.statements.Statement#execute(com.bachelor_project.reactive.SignalGuard, java.util.Map)
+ * @see java.lang.Thread#start()
  */
 public class ThreadedStatement extends Thread implements Statement {
     

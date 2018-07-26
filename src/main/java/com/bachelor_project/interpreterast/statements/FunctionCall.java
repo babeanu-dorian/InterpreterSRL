@@ -11,7 +11,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- *
+ * Encode a function call in the <b>SRL</b> language.
  * @author Alexandru Babeanu
  */
 public class FunctionCall implements Statement {
@@ -20,9 +20,13 @@ public class FunctionCall implements Statement {
     private final List<Statement> parameters;
     
     /**
-     *
-     * @param id
-     * @param parameters
+     * Constructs a {@link com.bachelor_project.interpreterast.statements.FunctionCall} object from
+     * an {@link com.bachelor_project.interpreterast.statements.Identifier} and a list of
+     * {@link com.bachelor_project.interpreterast.statements.Statement} objects encoding the arguments.
+     * @param id the {@link com.bachelor_project.interpreterast.statements.Identifier} used in the function call
+     * @param parameters the arguments used in the call
+     * @see com.bachelor_project.interpreterast.statements.Statement
+     * @see com.bachelor_project.interpreterast.statements.Identifier
      */
     public FunctionCall(Identifier id, List<Statement> parameters) {
         this.id = id;
@@ -30,11 +34,14 @@ public class FunctionCall implements Statement {
     }
 
     /**
-     *
-     * @param guard
-     * @param translationTable
-     * @return
+     * Executes a function call with no arguments. Delegates its work to
+     * {@link com.bachelor_project.interpreterast.statements.FunctionCall#execute(com.bachelor_project.reactive.SignalGuard, java.util.Map, java.util.List) }.
+     * @param guard the {@link com.bachelor_project.reactive.SignalGuard} object that manages the current {@link java.lang.Thread}
+     * @param translationTable the scope of the instruction
+     * @return the output of the function call (currently always <b>null</b>)
      * @throws RuntimeException
+     * @see com.bachelor_project.interpreterast.statements.FunctionCall#execute(com.bachelor_project.reactive.SignalGuard, java.util.Map, java.util.List)
+     * @see com.bachelor_project.reactive.SignalGuard
      */
     @Override
     public Object execute(SignalGuard guard, Map<String, Statement> translationTable) throws RuntimeException {
@@ -42,12 +49,18 @@ public class FunctionCall implements Statement {
     }
     
     /**
-     *
-     * @param guard
-     * @param translationTable
-     * @param parameterList
-     * @return
+     * Executes a function call with arguments. It first translates the underlying {@link com.bachelor_project.interpreterast.statements.Identifier}
+     * in the given scope, via the method {@link com.bachelor_project.interpreterast.statements.Identifier#translate(java.util.Map) },
+     * then uses the method {@link com.bachelor_project.reactive.Program#callFunction(java.lang.String, java.util.List, com.bachelor_project.reactive.SignalGuard) }
+     * to execute the function code.
+     * @param guard the {@link com.bachelor_project.reactive.SignalGuard} object that manages the current {@link java.lang.Thread}
+     * @param translationTable the scope of the instruction
+     * @param parameterList the list of arguments
+     * @return the output of the function call (currently always <b>null</b>)
      * @throws RuntimeException
+     * @see com.bachelor_project.interpreterast.statements.Identifier#translate(java.util.Map)
+     * @see com.bachelor_project.reactive.Program#callFunction(java.lang.String, java.util.List, com.bachelor_project.reactive.SignalGuard)
+     * @see com.bachelor_project.reactive.SignalGuard
      */
     public Object execute(SignalGuard guard, Map<String, Statement> translationTable, List<Parameter> parameterList) throws RuntimeException{
         List<Parameter> fullParameterList = new ArrayList<Parameter>();
@@ -78,7 +91,7 @@ public class FunctionCall implements Statement {
         if (function instanceof Value)
             return ((Value) function).execute(guard, translationTable);
         
-        throw new RuntimeException("Error: Identifier was translated to a statement that isn't a Parameter, Identifier or Value, this should never happen");
+        throw new RuntimeException("Error: Identifier was translated to a statement that isn't a Parameter, Identifier or Value. This indicates a mistake in the parser code.");
     }
     
 }

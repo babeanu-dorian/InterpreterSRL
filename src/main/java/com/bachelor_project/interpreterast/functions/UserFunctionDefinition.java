@@ -15,7 +15,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- *
+ * Implements a function defined by a programmer using the <b>let</b> construct.
  * @author Alexandru Babeanu
  */
 public class UserFunctionDefinition implements FunctionDefinition{
@@ -23,9 +23,11 @@ public class UserFunctionDefinition implements FunctionDefinition{
     private final Statement functionCode;
     
     /**
-     *
-     * @param parameterNames
-     * @param functionCode
+     * Constructs an object that encodes a function from an instruction block and a list of parameter names.
+     * @param parameterNames a list of {@link java.lang.String} objects containing the names of the function parameters
+     * @param functionCode a {@link com.bachelor_project.interpreterast.statements.Statement} object that encodes the
+     * function body
+     * @see com.bachelor_project.interpreterast.statements.Statement
      */
     public UserFunctionDefinition(List<String> parameterNames, Statement functionCode) {
         this.parameterNames = parameterNames;
@@ -33,10 +35,15 @@ public class UserFunctionDefinition implements FunctionDefinition{
     }
     
     /**
-     *
-     * @param guard
-     * @param parameterList
-     * @throws RuntimeException
+     * Executes a call to a function defined in the program.
+     * It first constructs the translation table that encodes the scope of the function,
+     * then uses it to executes the function body.
+     * @param guard the {@link com.bachelor_project.reactive.SignalGuard} object that manages the current {@link java.lang.Thread}
+     * @param parameterList a list of {@link com.bachelor_project.interpreterast.statements.Parameter} objects containing the
+     * arguments passed to the function call
+     * @throws RuntimeException if the number of arguments is less than the number of expected arguments
+     * @see com.bachelor_project.reactive.SignalGuard
+     * @see com.bachelor_project.interpreterast.statements.Parameter
      */
     @Override
     public void call(SignalGuard guard, List<Parameter> parameterList) throws RuntimeException {

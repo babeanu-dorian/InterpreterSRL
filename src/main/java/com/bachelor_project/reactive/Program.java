@@ -25,11 +25,14 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
 /**
- *
+ * Encodes an executable interpretation of an <b>SRL</b> program.
  * @author Alexandru Babeanu
  */
 public class Program {
     
+    /**
+     * Auxiliary inner class used to encode the set of actions to be performed at the end of an instant.
+     */
     private class EndInstantHandler implements Runnable {
 
         private long instantCount = 0;
@@ -77,11 +80,15 @@ public class Program {
     private long localSignalCounter = 0;   // used for renaming local signals
     
     /**
-     *
-     * @param signalList
-     * @param sharedData
-     * @param declarations
-     * @param statements
+     * Constructs an executable interpretation of an <b>SRL</b> program. Requires the signal interface,
+     * declared through the <b>signal_domain</b> construct, the list of shared variables declared through
+     * the <b>shared_data</b> construct, the table that encodes the functions declared using the <b>let</b>
+     * construct, and the encoding of the program instructions.
+     * @param signalList a list of the signal names in the signal interface of the program
+     * @param sharedData a list of identifiers for shared variables
+     * @param declarations a table that maps each function name to the
+     * {@link com.bachelor_project.interpreterast.functions.FunctionDefinition} object that encodes said function
+     * @param statements the sequence of program instructions
      */
     public Program(List<String> signalList, List<String> sharedData, Map<String, FunctionDefinition> declarations, StatementSequence statements) {
         
@@ -133,26 +140,33 @@ public class Program {
     }
     
     /**
-     *
-     * @return
+     * Offers access to the underlying {@link com.bachelor_project.reactive.Scheduler} object.
+     * @return the underlying {@link com.bachelor_project.reactive.Scheduler} object
+     * @see com.bachelor_project.reactive.Scheduler
      */
     public Scheduler getScheduler() {
         return this.scheduler;
     }
     
     /**
-     *
-     * @return
+     * Returns a {@link java.util.Map} view of the global scope of the program.
+     * This scope consists of a table that maps the identifiers of the shared variables
+     * declared with the <b>shared_data</b> construct to the
+     * {@link com.bachelor_project.interpreterast.statements.Statement} objects used to encode them.
+     * @return a {@link java.util.Map} view of the global scope of the program
+     * @see com.bachelor_project.interpreterast.statements.Value
+     * @see com.bachelor_project.interpreterast.types.LockedPointer
      */
     public Map<String, Statement> getGlobalScope() {
         return Collections.unmodifiableMap(this.sharedData);
     }
-    
-    // creates a new entry in the signal table and returns the signal name
 
     /**
-     *
-     * @return
+     * Creates a new entry in the signal table and returns the signal name.
+     * This new name is obtained by concatenating the symbol "#" with a number.
+     * It is ensured to be unique, because user declared identifiers cannot
+     * start with the symbol "#" and the number is always incremented.
+     * @return a new, unique, signal name
      */
     public String addLocalSignal() {
         this.signalLock.lock();
@@ -167,9 +181,12 @@ public class Program {
     }
     
     /**
-     *
-     * @param consumer
-     * @return
+     * Allows threads to subscribe to the signal table.
+     * @param consumer the object that performs the event reaction
+     * @return a <a href="http://reactivex.io/RxJava/javadoc/io/reactivex/disposables/Disposable.html">Disposable</a>
+     * object used to unsubscribe from the observable
+     * @see <a href="http://reactivex.io/RxJava/2.x/javadoc/io/reactivex/Observable.html#subscribe--">Observable.subscribe()</a>
+     * @see <a href="http://reactivex.io/RxJava/javadoc/io/reactivex/disposables/Disposable.html">Disposable</a>
      */
     public Disposable subscribeToSignalTable(Consumer<Map<String, Boolean>> consumer) {
         this.signalLock.lock();
@@ -181,18 +198,24 @@ public class Program {
     }
     
     /**
-     *
-     * @param consumer
-     * @return
+     * Allows threads to subscribe to the underlying
+     * <a href="http://reactivex.io/RxJava/javadoc/rx/subjects/PublishSubject.html">PublishSubject</a>,
+     * which will notify them when an instant has ended.
+     * @param consumer the object that performs the event reaction
+     * @return a <a href="http://reactivex.io/RxJava/javadoc/io/reactivex/disposables/Disposable.html">Disposable</a>
+     * object used to unsubscribe from the observable
+     * @see <a href="http://reactivex.io/RxJava/javadoc/rx/subjects/PublishSubject.html">PublishSubject</a>
+     * @see <a href="http://reactivex.io/RxJava/2.x/javadoc/io/reactivex/Observable.html#subscribe--">Observable.subscribe()</a>
+     * @see <a href="http://reactivex.io/RxJava/javadoc/io/reactivex/disposables/Disposable.html">Disposable</a>
      */
     public synchronized Disposable subscribeToInstantSignaler(Consumer<Map<String, Boolean>> consumer) {
         return this.endInstantSignaler.subscribe(consumer);
     }
     
     /**
-     *
-     * @param signalName
-     * @throws RuntimeException
+     * Makes a signal present in the signal environment.
+     * @param signalName the name of the emitted signal
+     * @throws RuntimeException when the name of the emitted signal is not in the table
      */
     public void emitSignal(String signalName) throws RuntimeException {
         
@@ -207,6 +230,12 @@ public class Program {
         }
     }
     
+    /**
+     * Auxiliary function for parsing the input signals of an instant.
+     * @param in the {@link java.util.Scanner} that performs the reading
+     * @throws IOException
+     * @see java.util.Scanner
+     */
     private void readInput(Scanner in) throws IOException {
         String[] input = in.nextLine().split("\\s+");
         for (String sig : input) {
@@ -216,7 +245,7 @@ public class Program {
     }
     
     /**
-     *
+     * Executes the interpreted program.
      * @throws RuntimeException
      * @throws IOException
      */
@@ -235,11 +264,17 @@ public class Program {
     }
     
     /**
-     *
-     * @param functionName
-     * @param parameterList
-     * @param guard
-     * @throws RuntimeException
+     * Executes a call to a function declared via the <b>let</b> construct.
+     * Calls the {@link com.bachelor_project.interpreterast.functions.FunctionDefinition#call(com.bachelor_project.reactive.SignalGuard, java.util.List) }
+     * method of the {@link com.bachelor_project.interpreterast.functions.FunctionDefinition} object that is mapped
+     * to the provided function name in the table of functions.
+     * @param functionName the name of the function being called
+     * @param parameterList a list of {@link com.bachelor_project.interpreterast.statements.Parameter} objects encoding the call arguments
+     * @param guard the {@link com.bachelor_project.reactive.SignalGuard} object associated with the current {@link java.lang.Thread}
+     * @throws RuntimeException when the function name does not match any declared function
+     * @see com.bachelor_project.interpreterast.functions.FunctionDefinition#call(com.bachelor_project.reactive.SignalGuard, java.util.List)
+     * @see com.bachelor_project.interpreterast.statements.Parameter
+     * @see com.bachelor_project.reactive.SignalGuard
      */
     public void callFunction(String functionName, List<Parameter> parameterList, SignalGuard guard) throws RuntimeException{
         if (!functions.containsKey(functionName))
@@ -248,8 +283,9 @@ public class Program {
     }
     
     /**
-     *
-     * @return
+     * Returns a table containing all the functions that are inherently defined in the language.
+     * @return a table that maps each language construct to its encoding
+     * {@link com.bachelor_project.interpreterast.functions.FunctionDefinition} object
      */
     public static Map<String, FunctionDefinition> keywordDefinitions() {
         Map<String, FunctionDefinition> keywordFunctions = new HashMap<String, FunctionDefinition>();

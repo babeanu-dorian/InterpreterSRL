@@ -24,11 +24,15 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- *
+ * Manages the execution of the current {@link java.lang.Thread} with respect to
+ * <b>when</b>, <b>watch</b> and <b>lock</b> instructions.
  * @author AlexandruBabeanu
  */
 public class SignalGuard {
     
+    /**
+    * Auxiliary inner superclass used for encoding <b>when</b> and <b>watch</b> conditions.
+    */
     private static abstract class Instruction{
         
         public enum Command{
@@ -49,6 +53,9 @@ public class SignalGuard {
         public abstract Command getCommand();
     }
     
+    /**
+    * Auxiliary inner class used for encoding <b>when</b> conditions.
+    */
     private class WhenInstruction extends Instruction{
         
         public WhenInstruction(String signalName) {
@@ -67,6 +74,9 @@ public class SignalGuard {
         
     }
     
+    /**
+    * Auxiliary inner class used for encoding <b>watch</b> conditions.
+    */
     private class WatchInstruction extends Instruction{
         
         public WatchInstruction(String signalName) {
@@ -98,8 +108,11 @@ public class SignalGuard {
     private int stopCount; // how many checks have to be removed before the activated watch is removed 
     
     /**
-     *
-     * @param environment
+     * Constructs a {@link com.bachelor_project.reactive.SignalGuard} object for the current {@link java.lang.Thread}
+     * in the provided {@link com.bachelor_project.reactive.Program}.
+     * @param environment the {@link com.bachelor_project.reactive.Program} object that will use the
+     * {@link com.bachelor_project.reactive.SignalGuard} object
+     * @see com.bachelor_project.reactive.Program
      */
     public SignalGuard(Program environment) {
         this.environment = environment;
@@ -116,33 +129,40 @@ public class SignalGuard {
     }
     
     /**
-     *
-     * @return
+     * Returns the {@link com.bachelor_project.reactive.Program} object that encodes the current <b>SRL</b> program.
+     * @return the {@link com.bachelor_project.reactive.Program} object that encodes the current <b>SRL</b> program
+     * @see com.bachelor_project.reactive.Program
      */
     public Program getEnvironment() {
         return this.environment;
     }
     
     /**
-     *
-     * @return
+     * Returns a {@link java.util.Map} view representing the global scope of the current thread.
+     * The global scope of a thread contains the global scope of the program, obtained by calling
+     * {@link com.bachelor_project.reactive.Program#getGlobalScope() }, and the <b>private</b> structure added by calling
+     * {@link com.bachelor_project.reactive.SignalGuard#addPrivateStructToScope() }.
+     * @return a {@link java.util.Map} view representing the global scope of the current thread
+     * @see com.bachelor_project.reactive.Program#getGlobalScope()
+     * @see com.bachelor_project.reactive.SignalGuard#addPrivateStructToScope()
      */
     public Map<String, Statement> getGlobalScope() {
         return Collections.unmodifiableMap(this.globalScope);
     }
     
     /**
-     *
-     * @return
+     * Returns whether or not the current instruction is enclosed by an activated <b>watch</b> instruction. 
+     * @return <b>true</b> if the current instruction should be aborted, <b>false</b> otherwise.
      */
     public boolean isAborting() {
         return stopCount > 0;
     }
-    
-    // set up the thread's private variable
 
     /**
-     *
+     * Adds a structure stored in a variable called <b>private</b> to the global scope of the current thread.
+     * @see com.bachelor_project.interpreterast.functions.StructFunctionDefinition#makeStruct(com.bachelor_project.interpreterast.types.LockedPointer)
+     * @see com.bachelor_project.interpreterast.types.LockedPointer
+     * @see com.bachelor_project.interpreterast.statements.Value
      */
     public void addPrivateStructToScope() {
         LockedPointer privateScope = new LockedPointer(Thread.currentThread().getId());
@@ -151,8 +171,11 @@ public class SignalGuard {
     }
     
     /**
-     *
-     * @param signalTable
+     * Handles the reaction to changes in the signal environment.
+     * Evaluates signal environment with respect to <b>when</b> conditions.
+     * If they have all been met, the corresponding {@link java.lang.Thread} is signalled to resume execution.
+     * @param signalTable a {@link java.util.Map} view of the signal environment
+     * @see java.util.concurrent.locks.Condition
      */
     public void checkWhen(Map<String, Boolean> signalTable) {
         this.lock.lock();
@@ -172,7 +195,10 @@ public class SignalGuard {
         
     }
     
-    // returns the index of the activated WATCH statement, checks.size() if there is no active WATCH
+    /**
+     * Returns the index in <b>checks</b> of the activated WATCH instruction,
+     * <b>checks.size()</b> if there is no active WATCH
+     */
     private int checkWatch(Map<String, Boolean> signalTable) {
         for (int i = 0; i != this.checks.size(); ++i) {
             Instruction check = this.checks.get(i);
@@ -190,8 +216,11 @@ public class SignalGuard {
     }
     
     /**
-     *
-     * @param signalTable
+     * Handles the reaction to the transition from one instant to the next.
+     * Performs the <b>abort</b> operation associated with the <b>watch</b> construct and signals
+     * the relevant {@link java.lang.Thread} to resume execution.
+     * @param signalTable a {@link java.util.Map} view of the signal environment
+     * @see java.util.concurrent.locks.Condition
      */
     public void nextInstant(Map<String, Boolean> signalTable) {
         
@@ -224,7 +253,9 @@ public class SignalGuard {
     }
     
     /**
-     *
+     * Function called by the {@link com.bachelor_project.reactive.Scheduler} when granting resources to the
+     * {@link java.lang.Thread} associated with this {@link com.bachelor_project.reactive.SignalGuard}.
+     * @see com.bachelor_project.reactive.Scheduler
      */
     public void grantResources() {
         this.lock.lock();
@@ -237,6 +268,11 @@ public class SignalGuard {
         }
     }
     
+    /**
+     * Uses {@link com.bachelor_project.reactive.Scheduler#releaseResources(java.util.List) } to
+     * release all the owned locks before going into waiting.
+     * @see com.bachelor_project.reactive.Scheduler#releaseResources(java.util.List) 
+     */
     private void releaseResources() {
         if (this.resources.isEmpty())
             return;
@@ -246,11 +282,14 @@ public class SignalGuard {
     }
     
     /**
-     *
-     * @param whenList
-     * @param statement
-     * @param translationTable
+     * Implements the execution of a <b>when</b> instruction. The additional checks are added to a list, then the
+     * {@link com.bachelor_project.reactive.SignalGuard#executeStatement(com.bachelor_project.interpreterast.statements.Statement, java.util.Map) }
+     * method is called to handle the execution of the enclosed instruction block.
+     * @param whenList the list of signals associated with the <b>when</b> instruction
+     * @param statement the instruction block enclosed within the <b>when</b> instruction
+     * @param translationTable the scope of the instruction block
      * @throws RuntimeException
+     * @see com.bachelor_project.reactive.SignalGuard#executeStatement(com.bachelor_project.interpreterast.statements.Statement, java.util.Map)
      */
     public void executeWhen(List<String> whenList, Statement statement, Map<String, Statement> translationTable) throws RuntimeException {
 
@@ -267,11 +306,14 @@ public class SignalGuard {
     }
     
     /**
-     *
-     * @param watchList
-     * @param statement
-     * @param translationTable
+     * Implements the execution of a <b>watch</b> instruction. The additional checks are added to a list, then the
+     * {@link com.bachelor_project.reactive.SignalGuard#executeStatement(com.bachelor_project.interpreterast.statements.Statement, java.util.Map) }
+     * method is called to handle the execution of the enclosed instruction block.
+     * @param watchList the list of signals associated with the <b>watch</b> instruction
+     * @param statement the instruction block enclosed within the <b>watch</b> instruction
+     * @param translationTable the scope of the instruction block
      * @throws RuntimeException
+     * @see com.bachelor_project.reactive.SignalGuard#executeStatement(com.bachelor_project.interpreterast.statements.Statement, java.util.Map)
      */
     public void executeWatch(List<String> watchList, Statement statement, Map<String, Statement> translationTable) throws RuntimeException {
         
@@ -285,11 +327,17 @@ public class SignalGuard {
     }
     
     /**
-     *
-     * @param resources
-     * @param statement
-     * @param translationTable
+     * Implements the execution of a <b>lock</b> instruction. Add the provided
+     * {@link com.bachelor_project.interpreterast.types.LockedPointer} objects to the list of
+     * resource locks required to proceed execution. Uses the method
+     * {@link com.bachelor_project.reactive.SignalGuard#executeStatement(com.bachelor_project.interpreterast.statements.Statement, java.util.Map) }
+     * to execute the enclosed instruction block.
+     * @param resources the list of shared variables associated with the <b>lock</b> instruction
+     * @param statement the instruction block enclosed within the <b>lock</b> instruction
+     * @param translationTable the scope of the instruction block
      * @throws RuntimeException
+     * @see com.bachelor_project.interpreterast.types.LockedPointer
+     * @see com.bachelor_project.reactive.SignalGuard#executeStatement(com.bachelor_project.interpreterast.statements.Statement, java.util.Map)
      */
     public void executeLock(List<LockedPointer> resources, Statement statement, Map<String, Statement> translationTable) throws RuntimeException {
         
@@ -305,10 +353,18 @@ public class SignalGuard {
     }
 
     /**
-     *
-     * @param statement
-     * @param translationTable
+     * Manages the execution of instructions with respect to waiting for signals or resources to be available
+     * and aborting statements within activated <b>watch</b> instructions. Uses
+     * {@link java.util.concurrent.locks.Condition#await() } to block the current
+     * {@link java.lang.Thread} until the conditions required for executing the given
+     * {@link com.bachelor_project.interpreterast.statements.Statement} have been met,
+     * or the corresponding instruction was aborted.
+     * @param statement the {@link com.bachelor_project.interpreterast.statements.Statement} object
+     * encoding the instruction to be run
+     * @param translationTable  the scope of the statement
      * @throws RuntimeException
+     * @see java.util.concurrent.locks.Condition#await()
+     * @see com.bachelor_project.interpreterast.statements.Statement
      */
     public void executeStatement(Statement statement, Map<String, Statement> translationTable) throws RuntimeException {
         
@@ -329,12 +385,18 @@ public class SignalGuard {
     }
     
     /**
-     *
+     * Deregister from the end of instant observable.
      */
     public void unsubscribe() {
         this.endInstantSubscriber.dispose();
     }
     
+    /**
+     * Auxiliary function for waiting for the required signals to become present or for the current instant to end.
+     * Uses {@link com.bachelor_project.reactive.Program#subscribeToSignalTable(io.reactivex.functions.Consumer) }
+     * to subscribe to the signal environment.
+     * @see com.bachelor_project.reactive.Program#subscribeToSignalTable(io.reactivex.functions.Consumer)
+     */
     private void waitOnSignalTable() {
         this.lock.lock();
         try {
@@ -359,6 +421,11 @@ public class SignalGuard {
         }
     }
     
+    /**
+     * Auxiliary function for waiting on resource locks.
+     * Uses {@link com.bachelor_project.reactive.Scheduler#requestResources(java.util.List) }.
+     * @see com.bachelor_project.reactive.Scheduler#requestResources(java.util.List)
+     */
     private void waitOnResources() {
         this.lock.lock();
         try {
@@ -375,6 +442,11 @@ public class SignalGuard {
         }
     }
     
+    /**
+     * Removes {@link com.bachelor_project.reactive.SignalGuard.Instruction} objects from the list of
+     * <b>when</b> and <b>watch</b> checks.
+     * @param amount the amount of checks to remove from the list
+     */
     private void removeChecks(int amount) {
         this.checks.subList(this.checks.size() - amount, this.checks.size()).clear();
         this.stopCount -= amount;

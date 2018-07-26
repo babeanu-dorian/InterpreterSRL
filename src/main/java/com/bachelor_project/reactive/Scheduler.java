@@ -19,11 +19,17 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- *
+ * Handles the lock requests for shared variables as well as the transition from one instant to the next.
+ * Keeps a list of lock requests and a counter for the number of active threads. When the counter reaches 0,
+ * if there are any lock requests in the list, the locks are granted to threads in the order of their priority.
+ * If the list of requests is empty, all threads are notified no proceed to the next instance.
  * @author Alexandru Babeanu
  */
 public class Scheduler {
     
+    /**
+     * Auxiliary inner class used to store information about a thread in the program.
+     */
     private static class ThreadInfo {
         
         private int childrenCount;
@@ -47,7 +53,7 @@ public class Scheduler {
     private long activeThreads = 0;
     
     /**
-     *
+     * Constructs a new scheduler.
      */
     public Scheduler() {
         this.threadOrder = new LinkedList<Long>();
@@ -58,10 +64,15 @@ public class Scheduler {
     }
     
     /**
-     *
-     * @param id
-     * @param parentId
-     * @param guard
+     * Registers a thread as part of the interpreted program. Add the relevant information in a list,
+     * at a position that reflects the priority of the new thread. Called at the beginning of
+     * {@link com.bachelor_project.interpreterast.statements.ThreadedStatement#execute(com.bachelor_project.reactive.SignalGuard, java.util.Map) }
+     * @param id the id of the thread being registered
+     * @param parentId the id of the thread that spawned the registered thread
+     * @param guard the {@link com.bachelor_project.reactive.SignalGuard} object that manages the registered thread
+     * @see com.bachelor_project.reactive.SignalGuard
+     * @see java.lang.Thread#getId()
+     * @see com.bachelor_project.interpreterast.statements.ThreadedStatement#execute(com.bachelor_project.reactive.SignalGuard, java.util.Map)
      */
     public void registerThread(long id, long parentId, SignalGuard guard) {
         this.instantLock.lock();
@@ -92,7 +103,10 @@ public class Scheduler {
     }
     
     /**
-     *
+     * Stop managing a thread. Called when
+     * {@link com.bachelor_project.interpreterast.statements.ThreadedStatement#run()}
+     * finishes execution.
+     * @see com.bachelor_project.interpreterast.statements.ThreadedStatement#run() }
      */
     public void deregisterThread() {
         long id = Thread.currentThread().getId();
@@ -109,7 +123,7 @@ public class Scheduler {
     }
     
     /**
-     *
+     * Increment the number of active threads. Used by a thread when waking up another.
      */
     public void incrementActiveThreadCount() {
         
@@ -122,7 +136,7 @@ public class Scheduler {
     }
     
     /**
-     *
+     * Decrement the number of active threads. Used by a thread before entering a waiting state.
      */
     public void decrementActiveThreadCount() {
         this.instantLock.lock();
@@ -136,8 +150,11 @@ public class Scheduler {
     }
     
     /**
-     *
-     * @param endInstantHandler
+     * Waits until all threads in the program reach a suspended/terminated state,
+     * then either distributes resources, if any are requested, or executes the provided
+     * {@link java.lang.Runnable} to perform the transition from one instant to the next.
+     * @param endInstantHandler the  {@link java.lang.Runnable} to execute at the end of an instant
+     * @see java.lang.Runnable#run()
      */
     public void nextInstant(Runnable endInstantHandler) {
         
@@ -164,8 +181,10 @@ public class Scheduler {
     }
     
     /**
-     *
-     * @param resources
+     * Used to register shared variables that need to be managed by the scheduler.
+     * @param resources the list of {@link com.bachelor_project.interpreterast.types.LockedPointer} objects that
+     * encode the new shared variables
+     * @see com.bachelor_project.interpreterast.types.LockedPointer
      */
     public void declareResources(List<LockedPointer> resources) {
         this.instantLock.lock();
@@ -177,9 +196,11 @@ public class Scheduler {
     }
     
     /**
-     *
-     * @param resources
-     * @throws RuntimeException
+     * Used by a thread to register its requests for shared variables.
+     * @param resources the list of {@link com.bachelor_project.interpreterast.types.LockedPointer} objects that
+     * encode the requested shared variables
+     * @throws RuntimeException when a thread requests a resource that was not registered with the scheduler
+     * @see com.bachelor_project.interpreterast.types.LockedPointer
      */
     public void requestResources(List<LockedPointer> resources) throws RuntimeException{
         
@@ -196,8 +217,10 @@ public class Scheduler {
     }
     
     /**
-     *
-     * @param resources
+     * Used by a thread to release resource locks.
+     * @param resources the list of {@link com.bachelor_project.interpreterast.types.LockedPointer} objects that
+     * encode the released shared variables
+     * @see com.bachelor_project.interpreterast.types.LockedPointer
      */
     public void releaseResources(List<LockedPointer> resources) {
         this.instantLock.lock();
@@ -211,6 +234,13 @@ public class Scheduler {
         }
     }
     
+    /**
+     * Auxiliary function for distributing resources to threads in the order of their priority.
+     * For each thread, it will grant either all requests of no requests. Uses
+     * {@link com.bachelor_project.reactive.SignalGuard#grantResources() } to signal a thread that
+     * its requests were granted.
+     * @see @link com.bachelor_project.reactive.SignalGuard#grantResources()
+     */
     private void distributeResources() {
         
         // instantLock should be locked by the calling function
@@ -226,14 +256,11 @@ public class Scheduler {
                     break;
                 }
             }
-            //System.out.println("all Available " + allAvailable);
             if (allAvailable) {
-                //System.out.println("Requests for " + id + " : " + this.threads.get(id).requests);
                 this.threads.get(id).requests.forEach(resource -> {
                     this.resources.put(resource, false);
                     resource.setOwner(id);
                 });
-                //System.out.println(this.resources);
                 this.threads.get(id).requests.clear();
                 this.threads.get(id).guard.grantResources();
             }

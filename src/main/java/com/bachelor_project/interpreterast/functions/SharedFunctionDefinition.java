@@ -17,16 +17,31 @@ import java.util.List;
 import java.util.Map;
 
 /**
- *
+ * Implements the <b>shared</b> construct in the <b>SRL</b> language.
  * @author Alexandru Babeanu
  */
 public class SharedFunctionDefinition implements FunctionDefinition{
 
     /**
-     *
-     * @param guard
-     * @param parameterList
-     * @throws RuntimeException
+     * Creates new shared variables that are only accessible from the instruction block to be executed, then executes said instruction block.
+     * Creates a new {@link com.bachelor_project.interpreterast.types.LockedPointer} for each variable identifier,
+     * registers them with the scheduler using {@link com.bachelor_project.reactive.Scheduler#declareResources(java.util.List)},
+     * and stores them in {@link com.bachelor_project.interpreterast.statements.Value} objects.
+     * These objects will be matched with their identifiers in the translation table of the last
+     * {@link com.bachelor_project.interpreterast.statements.Parameter} in the list by using the method
+     * {@link com.bachelor_project.interpreterast.statements.Parameter#makeWithAdditionalTranslations(java.util.Map) }.
+     * The method {@link com.bachelor_project.interpreterast.statements.Parameter#execute(com.bachelor_project.reactive.SignalGuard, java.util.Map) }
+     * is then called on this {@link com.bachelor_project.interpreterast.statements.Parameter} to execute the inner instruction block.
+     * @param guard the {@link com.bachelor_project.reactive.SignalGuard} object that manages the current {@link java.lang.Thread}
+     * @param parameterList a list of {@link com.bachelor_project.interpreterast.statements.Parameter} objects containing
+     * the identifiers for the local shared variables, as well as the block of instructions to which the variables are bound
+     * @throws RuntimeException when the parameter list has less than two elements or when some parameter other than the last one is not an identifier
+     * @see com.bachelor_project.interpreterast.types.LockedPointer
+     * @see com.bachelor_project.interpreterast.statements.Value
+     * @see com.bachelor_project.interpreterast.statements.Parameter#makeWithAdditionalTranslations(java.util.Map)
+     * @see com.bachelor_project.reactive.Scheduler#declareResources(java.util.List)
+     * @see com.bachelor_project.reactive.SignalGuard
+     * @see com.bachelor_project.interpreterast.statements.Parameter
      */
     @Override
     public void call(SignalGuard guard, List<Parameter> parameterList) throws RuntimeException {
